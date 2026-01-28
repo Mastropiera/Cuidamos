@@ -1,7 +1,40 @@
 // Tipos para la app Cuidamos - Planificación de cuidados
 
+// ==========================================
+// CARE PLAN - Plan de cuidados principal
+// ==========================================
+export interface CarePlan {
+  id: string;
+  name: string;                     // "Plan de mamá"
+  description?: string;
+  patientName?: string;             // Nombre del paciente
+  ownerId: string;                  // UID del creador
+  ownerEmail: string;
+  collaborators: string[];          // UIDs con acceso
+  collaboratorEmails: string[];
+  inviteCode?: string;
+  inviteExpiresAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ==========================================
+// PLAN INVITE - Códigos de invitación
+// ==========================================
+export interface PlanInvite {
+  code: string;
+  planId: string;
+  createdBy: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
+// ==========================================
+// CARE TASK - Tareas de cuidado
+// ==========================================
 export interface CareTask {
   id: string;
+  planId: string;                   // Referencia al plan
   title: string;
   description?: string;
   date: string; // YYYY-MM-DD
@@ -9,13 +42,14 @@ export interface CareTask {
   completed: boolean;
   completedAt?: string;
   completedBy?: string;
+  completedByEmail?: string;
   category: CareCategory;
   priority: 'low' | 'medium' | 'high';
   recurring?: RecurringPattern;
-  patientId?: string;
   assignedTo?: string[];
   notes?: string;
   createdAt: string;
+  createdBy: string;
   updatedAt: string;
 }
 
