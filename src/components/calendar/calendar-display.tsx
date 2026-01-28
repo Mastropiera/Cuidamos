@@ -100,18 +100,19 @@ export default function CalendarDisplay({
           months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0 justify-center",
           month: "space-y-4 w-full",
           caption_label: "text-xl font-bold text-primary",
-          nav_button: "h-8 w-8",
-          head_cell: "w-full h-10 text-muted-foreground font-normal text-sm",
-          row: "flex w-full mt-2",
-          cell: "h-12 w-full text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
-          day: "h-12 w-full p-0 font-normal aria-selected:opacity-100 rounded-md",
-          day_selected:
+          button_previous: "h-8 w-8",
+          button_next: "h-8 w-8",
+          weekdays: "flex w-full",
+          weekday: "w-full h-10 text-muted-foreground font-normal text-sm",
+          week: "flex w-full mt-2",
+          day: "h-12 w-full text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
+          day_button: "h-12 w-full p-0 font-normal aria-selected:opacity-100 rounded-md",
+          selected:
             "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-          day_today: "font-bold ring-2 ring-primary/50",
-          day_outside: "text-muted-foreground opacity-50",
+          today: "font-bold ring-2 ring-primary/50",
+          outside: "text-muted-foreground opacity-50",
         }}
         showOutsideDays
-        ISOWeek={false}
       />
     </div>
   );
