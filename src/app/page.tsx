@@ -9,15 +9,15 @@ import { DailyView } from "@/components/calendar/daily-view";
 import { CarePlanList, TaskList } from "@/components/care-plan";
 import { useCarePlan } from "@/hooks/useCarePlan";
 import type { CareEvent } from "@/lib/types";
-import { Heart, AlertCircle } from "lucide-react";
+import { Heart, AlertCircle, LogOut } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
+import { AuthCard } from "@/components/auth/auth-card";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// Temporary user ID (in production, this would come from authentication)
-const TEMP_USER_ID = "user-local-1";
-const TEMP_USER_EMAIL = "usuario@cuidamos.app";
-
 export default function Home() {
+  const { user, loading, logout } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
   const [currentView, setCurrentView] = useState<CalendarViewType>("monthly");
   const [activeTab, setActiveTab] = useState<"calendar" | "plans">("plans");
@@ -38,7 +38,7 @@ export default function Home() {
     generateInvite,
     joinWithInvite,
     leaveAsCollaborator,
-  } = useCarePlan(TEMP_USER_ID, TEMP_USER_EMAIL);
+  } = useCarePlan(user?.uid, user?.email ?? undefined);
 
   // Convert tasks to CareEvents for calendar display
   const calendarEvents: CareEvent[] = useMemo(() => {
@@ -74,6 +74,23 @@ export default function Home() {
 
   const selectedPlan = plans.find((p) => p.id === selectedPlanId);
   const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
+
+  // Show loading skeleton while checking auth state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Heart className="h-8 w-8 text-primary fill-primary/20 animate-pulse" />
+          <span>Cargando...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login screen if not authenticated
+  if (!user) {
+    return <AuthCard />;
+  }
 
   // Show configuration warning if Firebase is not configured
   if (!isFirebaseConfigured) {
@@ -122,9 +139,15 @@ export default function Home() {
               <Heart className="h-8 w-8 text-primary fill-primary/20" />
               <h1 className="text-2xl font-bold text-primary">Cuidamos</h1>
             </div>
-            <p className="text-sm text-muted-foreground hidden sm:block">
-              Planificacion de cuidados
-            </p>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground hidden sm:block">
+                {user.email}
+              </span>
+              <Button variant="ghost" size="sm" onClick={logout}>
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline ml-1">Salir</span>
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -148,7 +171,7 @@ export default function Home() {
                 <CarePlanList
                   plans={plans}
                   tasks={tasks}
-                  userId={TEMP_USER_ID}
+                  userId={user.uid}
                   selectedPlanId={selectedPlanId}
                   onSelectPlan={setSelectedPlanId}
                   onCreatePlan={createPlan}

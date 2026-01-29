@@ -1,5 +1,6 @@
 // Firebase configuration for Cuidamos app
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
+import { getAuth, type Auth } from "firebase/auth";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, type Firestore } from "firebase/firestore";
 
 // Firebase configuration from environment variables
@@ -18,6 +19,7 @@ const isConfigured = !!(firebaseConfig.apiKey && firebaseConfig.projectId);
 // Initialize Firebase
 let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
+let auth: Auth | null = null;
 
 if (isConfigured) {
   if (!getApps().length) {
@@ -31,6 +33,8 @@ if (isConfigured) {
       tabManager: persistentMultipleTabManager()
     })
   });
+
+  auth = getAuth(app);
 }
 
-export { app, db, isConfigured };
+export { app, db, auth, isConfigured };
