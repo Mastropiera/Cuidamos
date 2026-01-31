@@ -38,8 +38,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const loginWithGoogle = async () => {
     if (!auth) {
-      console.error("Firebase auth not configured");
-      return;
+      throw new Error("Firebase Auth no esta configurado. Revisa las variables de entorno NEXT_PUBLIC_FIREBASE_*");
     }
 
     const provider = new GoogleAuthProvider();
@@ -53,10 +52,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         firebaseError.code === "auth/popup-closed-by-user" ||
         firebaseError.code === "auth/cancelled-popup-request"
       ) {
-        console.log("Login popup closed by user");
-      } else {
-        console.error("Error during Google sign-in:", error);
+        // User closed the popup, not an error
+        return;
       }
+      throw error;
     }
   };
 

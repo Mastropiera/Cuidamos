@@ -9,11 +9,17 @@ import { useAuth } from "@/contexts/auth-context";
 export function AuthCard() {
   const { loginWithGoogle } = useAuth();
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async () => {
     setIsSigningIn(true);
+    setError(null);
     try {
       await loginWithGoogle();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      console.error("Login error:", err);
     } finally {
       setIsSigningIn(false);
     }
@@ -39,6 +45,9 @@ export function AuthCard() {
             >
               {isSigningIn ? "Conectando..." : "Iniciar sesion con Google"}
             </Button>
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
           </div>
         </CardContent>
       </Card>
