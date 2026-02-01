@@ -147,8 +147,8 @@ export function useCarePlan(userId: string | undefined, userEmail: string | unde
       const newPlan: CarePlan = {
         id: planId,
         name: data.name,
-        description: data.description,
-        patientName: data.patientName,
+        ...(data.description ? { description: data.description } : {}),
+        ...(data.patientName ? { patientName: data.patientName } : {}),
         ownerId: userId,
         ownerEmail: userEmail,
         collaborators: [],
