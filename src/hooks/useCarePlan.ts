@@ -14,7 +14,6 @@ import {
   arrayRemove,
   getDoc,
   getDocs,
-  or,
 } from "firebase/firestore";
 import { db, isConfigured } from "@/lib/firebase";
 import type { CarePlan, CareTask, PlanInvite } from "@/lib/types";
@@ -62,7 +61,7 @@ export function useCarePlan(userId: string | undefined, userEmail: string | unde
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Listen to plans in real-time
+  // Listen to plans in real-time (two separate queries merged)
   useEffect(() => {
     if (!userId || !db || !isConfigured) {
       setPlans([]);
@@ -73,32 +72,63 @@ export function useCarePlan(userId: string | undefined, userEmail: string | unde
 
     setIsLoading(true);
 
-    // Query for plans where user is owner OR collaborator
-    const plansQuery = query(
+    // Use two separate queries instead of or() to avoid composite index requirements
+    const ownedQuery = query(
       collection(db, "carePlans"),
-      or(
-        where("ownerId", "==", userId),
-        where("collaborators", "array-contains", userId)
-      )
+      where("ownerId", "==", userId)
+    );
+    const collabQuery = query(
+      collection(db, "carePlans"),
+      where("collaborators", "array-contains", userId)
     );
 
-    const unsubscribe = onSnapshot(
-      plansQuery,
+    let ownedPlans: CarePlan[] = [];
+    let collabPlans: CarePlan[] = [];
+    let ownedReady = false;
+    let collabReady = false;
+
+    const mergePlans = () => {
+      if (!ownedReady || !collabReady) return;
+      // Deduplicate by id and sort
+      const map = new Map<string, CarePlan>();
+      for (const p of ownedPlans) map.set(p.id, p);
+      for (const p of collabPlans) map.set(p.id, p);
+      setPlans(Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name)));
+      setIsLoading(false);
+    };
+
+    const unsub1 = onSnapshot(
+      ownedQuery,
       (snapshot) => {
-        const loadedPlans: CarePlan[] = [];
-        snapshot.forEach((doc) => {
-          loadedPlans.push({ id: doc.id, ...doc.data() } as CarePlan);
-        });
-        setPlans(loadedPlans.sort((a, b) => a.name.localeCompare(b.name)));
-        setIsLoading(false);
+        ownedPlans = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as CarePlan));
+        ownedReady = true;
+        mergePlans();
       },
       (error) => {
-        console.error("Error listening to care plans:", error);
-        setIsLoading(false);
+        console.error("Error listening to owned plans:", error);
+        ownedReady = true;
+        mergePlans();
       }
     );
 
-    return () => unsubscribe();
+    const unsub2 = onSnapshot(
+      collabQuery,
+      (snapshot) => {
+        collabPlans = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as CarePlan));
+        collabReady = true;
+        mergePlans();
+      },
+      (error) => {
+        console.error("Error listening to collaborator plans:", error);
+        collabReady = true;
+        mergePlans();
+      }
+    );
+
+    return () => {
+      unsub1();
+      unsub2();
+    };
   }, [userId]);
 
   // Listen to tasks for selected plan
