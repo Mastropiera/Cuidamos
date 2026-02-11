@@ -32,7 +32,6 @@ interface TaskFormProps {
 }
 
 const CATEGORIES: CareCategory[] = [
-  "medication",
   "hygiene",
   "nutrition",
   "mobility",

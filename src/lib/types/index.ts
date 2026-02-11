@@ -71,6 +71,51 @@ export interface RecurringPattern {
   endDate?: string;
 }
 
+// ==========================================
+// MEDICATION - Medicamentos dedicados
+// ==========================================
+export type AdministrationRoute =
+  | 'oral'
+  | 'sublingual'
+  | 'intramuscular'
+  | 'intravenosa'
+  | 'topica'
+  | 'inhalatoria'
+  | 'rectal'
+  | 'oftalmica'
+  | 'otica';
+
+export const ROUTE_LABELS: Record<AdministrationRoute, string> = {
+  oral: 'Oral',
+  sublingual: 'Sublingual',
+  intramuscular: 'Intramuscular',
+  intravenosa: 'Intravenosa',
+  topica: 'Tópica',
+  inhalatoria: 'Inhalatoria',
+  rectal: 'Rectal',
+  oftalmica: 'Oftálmica',
+  otica: 'Ótica',
+};
+
+export interface Medication {
+  id: string;
+  planId: string;
+  name: string;                     // Nombre del medicamento
+  dose: string;                     // Ej: "500mg", "1 pastilla"
+  route: AdministrationRoute;       // Vía de administración
+  schedule: string[];               // Horarios HH:mm
+  notes?: string;                   // Notas opcionales
+  date: string;                     // YYYY-MM-DD fecha inicio
+  recurring?: RecurringPattern;     // Patrón de recurrencia
+  completed: boolean;
+  completedAt?: string;
+  completedBy?: string;
+  completedByEmail?: string;
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+}
+
 export interface Patient {
   id: string;
   name: string;

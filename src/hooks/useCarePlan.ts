@@ -16,7 +16,7 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { db, isConfigured } from "@/lib/firebase";
-import type { CarePlan, CareTask, PlanInvite } from "@/lib/types";
+import type { CarePlan, CareTask, PlanInvite, Medication } from "@/lib/types";
 
 // Generate random invite code (6 characters)
 function generateInviteCode(): string {
@@ -32,6 +32,7 @@ export interface UseCarePlanResult {
   // State
   plans: CarePlan[];
   tasks: Record<string, CareTask[]>; // planId -> tasks
+  medications: Record<string, Medication[]>; // planId -> medications
   selectedPlanId: string | null;
   isLoading: boolean;
   isFirebaseConfigured: boolean;
@@ -48,6 +49,11 @@ export interface UseCarePlanResult {
   deleteTask: (planId: string, taskId: string) => Promise<boolean>;
   toggleTaskComplete: (planId: string, taskId: string) => Promise<boolean>;
 
+  // Medication operations
+  createMedication: (planId: string, data: Omit<Medication, 'id' | 'planId' | 'createdAt' | 'createdBy' | 'updatedAt' | 'completed'>) => Promise<string | null>;
+  deleteMedication: (planId: string, medicationId: string) => Promise<boolean>;
+  toggleMedicationComplete: (planId: string, medicationId: string) => Promise<boolean>;
+
   // Collaboration
   generateInvite: (planId: string) => Promise<string | null>;
   joinWithInvite: (code: string) => Promise<boolean>;
@@ -58,6 +64,7 @@ export interface UseCarePlanResult {
 export function useCarePlan(userId: string | undefined, userEmail: string | undefined): UseCarePlanResult {
   const [plans, setPlans] = useState<CarePlan[]>([]);
   const [tasks, setTasks] = useState<Record<string, CareTask[]>>({});
+  const [medications, setMedications] = useState<Record<string, Medication[]>>({});
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -66,6 +73,7 @@ export function useCarePlan(userId: string | undefined, userEmail: string | unde
     if (!userId || !db || !isConfigured) {
       setPlans([]);
       setTasks({});
+      setMedications({});
       setIsLoading(false);
       return;
     }
@@ -165,6 +173,39 @@ export function useCarePlan(userId: string | undefined, userEmail: string | unde
     return () => unsubscribe();
   }, [selectedPlanId]);
 
+  // Listen to medications for selected plan
+  useEffect(() => {
+    if (!selectedPlanId || !db || !isConfigured) return;
+
+    const medsQuery = query(
+      collection(db, "carePlans", selectedPlanId, "medications")
+    );
+
+    const unsubscribe = onSnapshot(
+      medsQuery,
+      (snapshot) => {
+        const loadedMeds: Medication[] = [];
+        snapshot.forEach((doc) => {
+          loadedMeds.push({ id: doc.id, ...doc.data() } as Medication);
+        });
+        loadedMeds.sort((a, b) => {
+          const dateCompare = a.date.localeCompare(b.date);
+          if (dateCompare !== 0) return dateCompare;
+          return (a.schedule[0] || "").localeCompare(b.schedule[0] || "");
+        });
+        setMedications((prev) => ({
+          ...prev,
+          [selectedPlanId]: loadedMeds,
+        }));
+      },
+      (error) => {
+        console.error("Error listening to medications:", error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [selectedPlanId]);
+
   // Create plan
   const createPlan = useCallback(
     async (data: { name: string; description?: string; patientName?: string }): Promise<string | null> => {
@@ -235,6 +276,13 @@ export function useCarePlan(userId: string | undefined, userEmail: string | unde
         );
         const deletePromises = tasksSnapshot.docs.map((doc) => deleteDoc(doc.ref));
         await Promise.all(deletePromises);
+
+        // Delete all medications
+        const medsSnapshot = await getDocs(
+          collection(db, "carePlans", planId, "medications")
+        );
+        const medDeletePromises = medsSnapshot.docs.map((doc) => deleteDoc(doc.ref));
+        await Promise.all(medDeletePromises);
 
         // Delete the plan
         await deleteDoc(doc(db, "carePlans", planId));
@@ -364,6 +412,88 @@ export function useCarePlan(userId: string | undefined, userEmail: string | unde
       }
     },
     [userId, userEmail, tasks]
+  );
+
+  // Create medication
+  const createMedication = useCallback(
+    async (
+      planId: string,
+      data: Omit<Medication, 'id' | 'planId' | 'createdAt' | 'createdBy' | 'updatedAt' | 'completed'>
+    ): Promise<string | null> => {
+      if (!userId || !db) return null;
+
+      const medId = crypto.randomUUID();
+      const newMed: Medication = {
+        ...data,
+        id: medId,
+        planId,
+        completed: false,
+        createdAt: new Date().toISOString(),
+        createdBy: userId,
+        updatedAt: new Date().toISOString(),
+      };
+
+      try {
+        await setDoc(doc(db, "carePlans", planId, "medications", medId), newMed);
+        return medId;
+      } catch (error) {
+        console.error("Error creating medication:", error);
+        return null;
+      }
+    },
+    [userId]
+  );
+
+  // Delete medication
+  const deleteMedication = useCallback(
+    async (planId: string, medicationId: string): Promise<boolean> => {
+      if (!db) return false;
+
+      try {
+        await deleteDoc(doc(db, "carePlans", planId, "medications", medicationId));
+        return true;
+      } catch (error) {
+        console.error("Error deleting medication:", error);
+        return false;
+      }
+    },
+    []
+  );
+
+  // Toggle medication complete
+  const toggleMedicationComplete = useCallback(
+    async (planId: string, medicationId: string): Promise<boolean> => {
+      if (!db || !userId || !userEmail) return false;
+
+      const planMeds = medications[planId] || [];
+      const med = planMeds.find((m) => m.id === medicationId);
+      if (!med) return false;
+
+      try {
+        if (med.completed) {
+          await updateDoc(doc(db, "carePlans", planId, "medications", medicationId), {
+            completed: false,
+            completedAt: null,
+            completedBy: null,
+            completedByEmail: null,
+            updatedAt: new Date().toISOString(),
+          });
+        } else {
+          await updateDoc(doc(db, "carePlans", planId, "medications", medicationId), {
+            completed: true,
+            completedAt: new Date().toISOString(),
+            completedBy: userId,
+            completedByEmail: userEmail,
+            updatedAt: new Date().toISOString(),
+          });
+        }
+        return true;
+      } catch (error) {
+        console.error("Error toggling medication:", error);
+        return false;
+      }
+    },
+    [userId, userEmail, medications]
   );
 
   // Generate invite code
@@ -529,6 +659,7 @@ export function useCarePlan(userId: string | undefined, userEmail: string | unde
   return {
     plans,
     tasks,
+    medications,
     selectedPlanId,
     isLoading,
     isFirebaseConfigured: isConfigured,
@@ -540,6 +671,9 @@ export function useCarePlan(userId: string | undefined, userEmail: string | unde
     updateTask,
     deleteTask,
     toggleTaskComplete,
+    createMedication,
+    deleteMedication,
+    toggleMedicationComplete,
     generateInvite,
     joinWithInvite,
     removeCollaborator,

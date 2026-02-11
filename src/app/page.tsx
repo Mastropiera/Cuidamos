@@ -6,7 +6,7 @@ import { ViewNavigation, type CalendarViewType } from "@/components/calendar/vie
 import CalendarDisplay from "@/components/calendar/calendar-display";
 import { WeeklyView } from "@/components/calendar/weekly-view";
 import { DailyView } from "@/components/calendar/daily-view";
-import { CarePlanList, TaskList } from "@/components/care-plan";
+import { CarePlanList, TaskList, MedicationList } from "@/components/care-plan";
 import { useCarePlan } from "@/hooks/useCarePlan";
 import type { CareEvent } from "@/lib/types";
 import { Heart, AlertCircle, LogOut } from "lucide-react";
@@ -26,6 +26,7 @@ export default function Home() {
   const {
     plans,
     tasks,
+    medications,
     selectedPlanId,
     isLoading,
     isFirebaseConfigured,
@@ -35,6 +36,9 @@ export default function Home() {
     createTask,
     toggleTaskComplete,
     deleteTask,
+    createMedication,
+    deleteMedication,
+    toggleMedicationComplete,
     generateInvite,
     joinWithInvite,
     leaveAsCollaborator,
@@ -180,6 +184,18 @@ export default function Home() {
                   onJoinWithInvite={joinWithInvite}
                   onLeavePlan={leaveAsCollaborator}
                 />
+
+                {/* Medication List for selected plan */}
+                {selectedPlan && (
+                  <MedicationList
+                    plan={selectedPlan}
+                    medications={medications[selectedPlanId!] || []}
+                    selectedDate={selectedDateStr}
+                    onCreateMedication={(data) => createMedication(selectedPlanId!, data)}
+                    onToggleComplete={(medId) => toggleMedicationComplete(selectedPlanId!, medId)}
+                    onDeleteMedication={(medId) => deleteMedication(selectedPlanId!, medId)}
+                  />
+                )}
 
                 {/* Task List for selected plan */}
                 {selectedPlan && (
