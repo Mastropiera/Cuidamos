@@ -1,29 +1,33 @@
 "use client";
 
 import { useMemo } from "react";
-import { canRole, canCompleteForPatient } from "@/lib/permissions";
+import { canRole, canCompleteForPatient, getEffectiveRole } from "@/lib/permissions";
 import type { UserRole, Shift } from "@/lib/types";
 
 export function usePermissions(
   role: UserRole | null,
   memberId: string | null,
-  shifts: Shift[]
+  shifts: Shift[],
+  canCoordinate: boolean = false
 ) {
   return useMemo(() => {
+    const effectiveRole = getEffectiveRole(role, canCoordinate);
+
     return {
-      canManageTeam: canRole(role, 'manage_team'),
-      canCreatePatient: canRole(role, 'create_patient'),
-      canDeletePatient: canRole(role, 'delete_patient'),
-      canEditPatient: canRole(role, 'edit_patient'),
-      canCreateTask: canRole(role, 'create_task'),
-      canDeleteTask: canRole(role, 'delete_task'),
-      canCreateMedication: canRole(role, 'create_medication'),
-      canDeleteMedication: canRole(role, 'delete_medication'),
-      canCreateShift: canRole(role, 'create_shift'),
-      canDeleteShift: canRole(role, 'delete_shift'),
+      effectiveRole,
+      canManageTeam: canRole(effectiveRole, 'manage_team'),
+      canCreatePatient: canRole(effectiveRole, 'create_patient'),
+      canDeletePatient: canRole(effectiveRole, 'delete_patient'),
+      canEditPatient: canRole(effectiveRole, 'edit_patient'),
+      canCreateTask: canRole(effectiveRole, 'create_task'),
+      canDeleteTask: canRole(effectiveRole, 'delete_task'),
+      canCreateMedication: canRole(effectiveRole, 'create_medication'),
+      canDeleteMedication: canRole(effectiveRole, 'delete_medication'),
+      canCreateShift: canRole(effectiveRole, 'create_shift'),
+      canDeleteShift: canRole(effectiveRole, 'delete_shift'),
 
       canCompleteForPatient: (patientId: string, date?: string) =>
-        canCompleteForPatient(role, memberId, patientId, shifts, date),
+        canCompleteForPatient(effectiveRole, memberId, patientId, shifts, date),
     };
-  }, [role, memberId, shifts]);
+  }, [role, memberId, shifts, canCoordinate]);
 }

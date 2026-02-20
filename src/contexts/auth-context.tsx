@@ -31,6 +31,7 @@ async function resolveAppUser(firebaseUser: User): Promise<AppUser> {
     memberId: null,
     role: null,
     memberColor: null,
+    canCoordinate: false,
   };
 
   if (!db || !firebaseUser.email) return base;
@@ -49,10 +50,12 @@ async function resolveAppUser(firebaseUser: User): Promise<AppUser> {
     );
 
     let memberColor: string | null = null;
+    let canCoordinate = false;
 
     if (memberSnap.exists()) {
       const member = memberSnap.data() as Member;
       memberColor = member.color || null;
+      canCoordinate = member.canCoordinate || false;
 
       // Bind UID on first login
       if (!member.uid) {
@@ -69,6 +72,7 @@ async function resolveAppUser(firebaseUser: User): Promise<AppUser> {
       memberId: mapping.memberId,
       role: mapping.role,
       memberColor,
+      canCoordinate,
     };
   } catch (error) {
     console.error("Error resolving app user:", error);

@@ -20,6 +20,7 @@ export interface CreateMemberData {
   phone: string;
   role: UserRole;
   color: string | null;
+  canCoordinate: boolean;
 }
 
 export function useMembers(orgId: string | null) {
@@ -74,6 +75,7 @@ export function useMembers(orgId: string | null) {
         phone: data.phone.trim(),
         role: data.role,
         color: data.role === 'cuidadora' ? data.color : null,
+        canCoordinate: data.role === 'enfermera' ? data.canCoordinate : false,
         active: true,
         createdAt: now,
         updatedAt: now,
@@ -103,7 +105,7 @@ export function useMembers(orgId: string | null) {
   const updateMember = useCallback(
     async (
       memberId: string,
-      data: Partial<Pick<Member, 'name' | 'phone' | 'role' | 'color' | 'active'>>
+      data: Partial<Pick<Member, 'name' | 'phone' | 'role' | 'color' | 'canCoordinate' | 'active'>>
     ): Promise<boolean> => {
       if (!orgId || !db) return false;
 

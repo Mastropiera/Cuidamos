@@ -46,6 +46,7 @@ export function OnboardingView() {
         phone: '',
         role: 'coordinadora',
         color: null,
+        canCoordinate: false,
         active: true,
         createdAt: now,
         updatedAt: now,

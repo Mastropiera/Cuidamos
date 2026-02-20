@@ -12,18 +12,28 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { CreatePatientData } from "@/hooks/usePatients";
+import type { Member } from "@/lib/types";
 
 interface CreatePatientDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: CreatePatientData) => Promise<string | null>;
+  enfermeras?: Member[];
 }
 
 export function CreatePatientDialog({
   open,
   onOpenChange,
   onSubmit,
+  enfermeras = [],
 }: CreatePatientDialogProps) {
   const [name, setName] = useState("");
   const [identifier, setIdentifier] = useState("");
@@ -32,6 +42,7 @@ export function CreatePatientDialog({
   const [phone, setPhone] = useState("");
   const [emergencyContact, setEmergencyContact] = useState("");
   const [medicalNotes, setMedicalNotes] = useState("");
+  const [assignedEnfermeraId, setAssignedEnfermeraId] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -47,6 +58,7 @@ export function CreatePatientDialog({
       phone: phone || undefined,
       emergencyContact: emergencyContact || undefined,
       medicalNotes: medicalNotes || undefined,
+      assignedEnfermeraId: assignedEnfermeraId || undefined,
     });
     setIsSubmitting(false);
 
@@ -64,6 +76,7 @@ export function CreatePatientDialog({
     setPhone("");
     setEmergencyContact("");
     setMedicalNotes("");
+    setAssignedEnfermeraId("");
   };
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -153,6 +166,26 @@ export function CreatePatientDialog({
                 onChange={(e) => setMedicalNotes(e.target.value)}
               />
             </div>
+
+            {enfermeras.length > 0 && (
+              <div className="space-y-2">
+                <Label>Enfermera asignada</Label>
+                <Select
+                  value={assignedEnfermeraId || "__none__"}
+                  onValueChange={(v) => setAssignedEnfermeraId(v === "__none__" ? "" : v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sin asignar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sin asignar</SelectItem>
+                    {enfermeras.map((e) => (
+                      <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           <DialogFooter>

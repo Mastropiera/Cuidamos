@@ -22,6 +22,7 @@ export interface CreatePatientData {
   phone?: string;
   emergencyContact?: string;
   medicalNotes?: string;
+  assignedEnfermeraId?: string;
 }
 
 export function usePatients(orgId: string | null) {
@@ -76,6 +77,7 @@ export function usePatients(orgId: string | null) {
         ...(data.phone ? { phone: data.phone.trim() } : {}),
         ...(data.emergencyContact ? { emergencyContact: data.emergencyContact.trim() } : {}),
         ...(data.medicalNotes ? { medicalNotes: data.medicalNotes.trim() } : {}),
+        ...(data.assignedEnfermeraId ? { assignedEnfermeraId: data.assignedEnfermeraId } : {}),
         active: true,
         createdAt: now,
         updatedAt: now,

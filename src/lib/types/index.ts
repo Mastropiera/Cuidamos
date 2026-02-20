@@ -27,6 +27,7 @@ export interface Member {
   phone: string;
   role: UserRole;
   color: string | null; // hex, solo cuidadoras
+  canCoordinate: boolean; // enfermera con permisos de coordinadora
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -54,6 +55,7 @@ export interface Patient {
   phone?: string;
   emergencyContact?: string;
   medicalNotes?: string;
+  assignedEnfermeraId?: string; // memberId de enfermera asignada
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -88,6 +90,7 @@ export interface AppUser {
   memberId: string | null;
   role: UserRole | null;
   memberColor: string | null;
+  canCoordinate: boolean;
 }
 
 // ==========================================

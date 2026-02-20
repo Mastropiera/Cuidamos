@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { PatientCard } from "./patient-card";
 import { CreatePatientDialog } from "./create-patient-dialog";
 import { Plus, Users } from "lucide-react";
-import type { Patient } from "@/lib/types";
+import type { Patient, Member } from "@/lib/types";
 import type { CreatePatientData } from "@/hooks/usePatients";
 import {
   Dialog,
@@ -25,6 +25,7 @@ interface PatientListProps {
   canDelete: boolean;
   onCreatePatient?: (data: CreatePatientData) => Promise<string | null>;
   onDeletePatient?: (patientId: string) => Promise<boolean>;
+  enfermeras?: Member[];
 }
 
 export function PatientList({
@@ -35,6 +36,7 @@ export function PatientList({
   canDelete,
   onCreatePatient,
   onDeletePatient,
+  enfermeras = [],
 }: PatientListProps) {
   const [showCreate, setShowCreate] = useState(false);
   const [deletePatient, setDeletePatient] = useState<Patient | null>(null);
@@ -87,6 +89,7 @@ export function PatientList({
           open={showCreate}
           onOpenChange={setShowCreate}
           onSubmit={onCreatePatient}
+          enfermeras={enfermeras}
         />
       )}
 

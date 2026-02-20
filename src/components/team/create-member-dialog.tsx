@@ -44,6 +44,7 @@ export function CreateMemberDialog({
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState<UserRole>("cuidadora");
   const [color, setColor] = useState<string | null>(null);
+  const [canCoordinate, setCanCoordinate] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const usedColors = existingMembers
@@ -55,7 +56,7 @@ export function CreateMemberDialog({
     if (!name.trim() || !email.trim()) return;
 
     setIsSubmitting(true);
-    const result = await onSubmit({ name, email, phone, role, color });
+    const result = await onSubmit({ name, email, phone, role, color, canCoordinate: role === 'enfermera' ? canCoordinate : false });
     setIsSubmitting(false);
 
     if (result) {
@@ -70,6 +71,7 @@ export function CreateMemberDialog({
     setPhone("");
     setRole("cuidadora");
     setColor(null);
+    setCanCoordinate(false);
   };
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -147,6 +149,21 @@ export function CreateMemberDialog({
                   onChange={setColor}
                   usedColors={usedColors}
                 />
+              </div>
+            )}
+
+            {role === "enfermera" && (
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="can-coordinate"
+                  checked={canCoordinate}
+                  onChange={(e) => setCanCoordinate(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <Label htmlFor="can-coordinate" className="text-sm font-normal">
+                  Permisos de coordinadora (gestionar equipo, eliminar pacientes)
+                </Label>
               </div>
             )}
           </div>

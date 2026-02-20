@@ -28,9 +28,10 @@ const ROLE_PERMISSIONS: Record<UserRole, Action[]> = {
   ],
   enfermera: [
     'view_patients',
+    'create_patient', 'edit_patient',
     'create_task', 'delete_task', 'complete_task',
     'create_medication', 'delete_medication', 'complete_medication',
-    'view_shifts',
+    'create_shift', 'delete_shift', 'view_shifts',
     'view_calendar',
   ],
   cuidadora: [
@@ -41,6 +42,13 @@ const ROLE_PERMISSIONS: Record<UserRole, Action[]> = {
     'view_calendar',
   ],
 };
+
+// Effective role: enfermera with canCoordinate gets coordinadora permissions
+export function getEffectiveRole(role: UserRole | null, canCoordinate: boolean): UserRole | null {
+  if (!role) return null;
+  if (role === 'enfermera' && canCoordinate) return 'coordinadora';
+  return role;
+}
 
 export function canRole(role: UserRole | null, action: Action): boolean {
   if (!role) return false;

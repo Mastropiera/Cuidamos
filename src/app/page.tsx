@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { startOfDay } from "date-fns";
 import { useAuth } from "@/contexts/auth-context";
 import { isConfigured } from "@/lib/firebase";
@@ -45,6 +45,7 @@ export default function Home() {
   const orgId = appUser?.orgId || null;
   const role = appUser?.role || null;
   const memberId = appUser?.memberId || null;
+  const canCoordinate = appUser?.canCoordinate || false;
 
   // Data hooks
   const { members, createMember, updateMember, deleteMember } = useMembers(orgId);
@@ -53,14 +54,25 @@ export default function Home() {
   const { medications, createMedication, toggleMedicationComplete, deleteMedication } = usePatientMedications(orgId, viewingPatient?.id || null);
   const { shifts, createShift, deleteShift } = useShifts(orgId);
 
-  // Permissions
-  const perms = usePermissions(role, memberId, shifts);
+  // Permissions (with canCoordinate for enfermera elevation)
+  const perms = usePermissions(role, memberId, shifts, canCoordinate);
 
   // Cuidadoras for shift creation
   const cuidadoras = members.filter((m) => m.role === 'cuidadora' && m.active);
 
+  // Enfermeras for patient assignment
+  const enfermeras = members.filter((m) => m.role === 'enfermera' && m.active);
+
   // Member name lookup for completions
   const currentMemberName = members.find((m) => m.id === memberId)?.name || appUser?.displayName || '';
+
+  // Patients filtered for enfermera: only assigned patients (unless canCoordinate)
+  const visiblePatients = useMemo(() => {
+    if (role === 'enfermera' && !canCoordinate) {
+      return patients.filter((p) => p.assignedEnfermeraId === memberId);
+    }
+    return patients;
+  }, [patients, role, canCoordinate, memberId]);
 
   // Handlers
   const handleSelectPatient = useCallback((patient: Patient) => {
@@ -149,15 +161,18 @@ export default function Home() {
   // Get org name
   const orgName = members.length > 0 ? undefined : undefined; // org name loaded elsewhere
 
-  // Determine which tabs to show based on role
+  // Use effective role for tab rendering (enfermera+canCoordinate → coordinadora tabs)
+  const effectiveRole = perms.effectiveRole;
+
+  // Determine which tabs to show based on effective role
   const renderTabs = () => {
-    if (role === 'coordinadora') return renderCoordinadoraTabs();
-    if (role === 'enfermera') return renderEnfermeraTabs();
-    if (role === 'cuidadora') return renderCuidadoraTabs();
+    if (effectiveRole === 'coordinadora') return renderCoordinadoraTabs();
+    if (effectiveRole === 'enfermera') return renderEnfermeraTabs();
+    if (effectiveRole === 'cuidadora') return renderCuidadoraTabs();
     return null;
   };
 
-  // ===== COORDINADORA TABS =====
+  // ===== COORDINADORA TABS (also used by enfermera+canCoordinate) =====
   const renderCoordinadoraTabs = () => (
     <Tabs defaultValue="equipo">
       <TabsList className="mb-6 flex-wrap">
@@ -196,13 +211,14 @@ export default function Home() {
           />
         ) : (
           <PatientList
-            patients={patients}
+            patients={visiblePatients}
             selectedPatientId={selectedPatientId}
             onSelectPatient={handleSelectPatient}
             canCreate={perms.canCreatePatient}
             canDelete={perms.canDeletePatient}
             onCreatePatient={createPatient}
             onDeletePatient={deletePatient}
+            enfermeras={enfermeras}
           />
         )}
       </TabsContent>
@@ -228,8 +244,9 @@ export default function Home() {
   // ===== ENFERMERA TABS =====
   const renderEnfermeraTabs = () => (
     <Tabs defaultValue="pacientes">
-      <TabsList className="mb-6">
+      <TabsList className="mb-6 flex-wrap">
         <TabsTrigger value="pacientes">Pacientes</TabsTrigger>
+        <TabsTrigger value="turnos">Turnos</TabsTrigger>
         <TabsTrigger value="calendario">Calendario</TabsTrigger>
       </TabsList>
 
@@ -252,13 +269,28 @@ export default function Home() {
           />
         ) : (
           <PatientList
-            patients={patients}
+            patients={visiblePatients}
             selectedPatientId={selectedPatientId}
             onSelectPatient={handleSelectPatient}
-            canCreate={false}
-            canDelete={false}
+            canCreate={perms.canCreatePatient}
+            canDelete={perms.canDeletePatient}
+            onCreatePatient={createPatient}
+            onDeletePatient={deletePatient}
+            enfermeras={enfermeras}
           />
         )}
+      </TabsContent>
+
+      <TabsContent value="turnos">
+        <ShiftList
+          shifts={shifts}
+          cuidadoras={cuidadoras}
+          patients={patients}
+          canCreate={perms.canCreateShift}
+          canDelete={perms.canDeleteShift}
+          onCreateShift={handleCreateShift}
+          onDeleteShift={deleteShift}
+        />
       </TabsContent>
 
       <TabsContent value="calendario">

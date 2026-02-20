@@ -29,7 +29,7 @@ interface EditMemberDialogProps {
   member: Member | null;
   onSubmit: (
     memberId: string,
-    data: Partial<Pick<Member, 'name' | 'phone' | 'role' | 'color' | 'active'>>
+    data: Partial<Pick<Member, 'name' | 'phone' | 'role' | 'color' | 'canCoordinate' | 'active'>>
   ) => Promise<boolean>;
   existingMembers: Member[];
 }
@@ -47,6 +47,7 @@ export function EditMemberDialog({
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState<UserRole>("cuidadora");
   const [color, setColor] = useState<string | null>(null);
+  const [canCoordinate, setCanCoordinate] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -55,6 +56,7 @@ export function EditMemberDialog({
       setPhone(member.phone);
       setRole(member.role);
       setColor(member.color);
+      setCanCoordinate(member.canCoordinate || false);
     }
   }, [member]);
 
@@ -72,6 +74,7 @@ export function EditMemberDialog({
       phone: phone.trim(),
       role,
       color: role === 'cuidadora' ? color : null,
+      canCoordinate: role === 'enfermera' ? canCoordinate : false,
     });
     setIsSubmitting(false);
 
@@ -144,6 +147,21 @@ export function EditMemberDialog({
                   onChange={setColor}
                   usedColors={usedColors}
                 />
+              </div>
+            )}
+
+            {role === "enfermera" && (
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="edit-can-coordinate"
+                  checked={canCoordinate}
+                  onChange={(e) => setCanCoordinate(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <Label htmlFor="edit-can-coordinate" className="text-sm font-normal">
+                  Permisos de coordinadora (gestionar equipo, eliminar pacientes)
+                </Label>
               </div>
             )}
           </div>
