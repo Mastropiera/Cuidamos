@@ -1,81 +1,40 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  PlusCircle,
   Calendar,
-  CheckCircle2,
+  User,
 } from "lucide-react";
 import { format, addDays, subDays, isSameDay, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
-import type { CareEvent } from "@/lib/types";
+import type { Shift } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface DailyViewProps {
   selectedDate: Date;
   onDateChange: (date: Date) => void;
-  events: CareEvent[];
-  onToggleComplete?: (eventId: string) => void;
-  onAddEvent?: (event: Omit<CareEvent, 'id'>) => void;
+  shifts: Shift[];
+  highlightMemberId?: string;
 }
 
 export function DailyView({
   selectedDate,
   onDateChange,
-  events,
-  onToggleComplete,
-  onAddEvent,
+  shifts,
+  highlightMemberId,
 }: DailyViewProps) {
   const dateKey = format(selectedDate, "yyyy-MM-dd");
   const isToday = isSameDay(selectedDate, new Date());
 
-  // Form state for adding tasks
-  const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [newTaskTime, setNewTaskTime] = useState('');
-  const [isFormExpanded, setIsFormExpanded] = useState(false);
-
-  const handleAddTask = () => {
-    if (newTaskTitle.trim() && onAddEvent) {
-      const eventData: Omit<CareEvent, 'id'> = {
-        title: newTaskTitle.trim(),
-        date: dateKey,
-        isAllDay: !newTaskTime.trim(),
-        startTime: newTaskTime.trim() || undefined,
-        type: 'task',
-        completed: false,
-      };
-
-      onAddEvent(eventData);
-      setNewTaskTitle('');
-      setNewTaskTime('');
-      setIsFormExpanded(false);
-    }
-  };
-
-  // Get events for selected day
-  const dayEvents = useMemo(() => {
-    return events
-      .filter(event => event.date === dateKey)
-      .sort((a, b) => {
-        // All-day events first
-        if (a.isAllDay && !b.isAllDay) return -1;
-        if (!a.isAllDay && b.isAllDay) return 1;
-        // Then by start time
-        if (a.startTime && b.startTime) {
-          return a.startTime.localeCompare(b.startTime);
-        }
-        return 0;
-      });
-  }, [events, dateKey]);
-
-  const completedCount = dayEvents.filter(e => e.completed).length;
-  const pendingCount = dayEvents.filter(e => !e.completed).length;
+  const dayShifts = useMemo(() => {
+    return shifts
+      .filter((s) => s.date === dateKey)
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  }, [shifts, dateKey]);
 
   const goToPrevDay = () => onDateChange(subDays(selectedDate, 1));
   const goToNextDay = () => onDateChange(addDays(selectedDate, 1));
@@ -83,7 +42,7 @@ export function DailyView({
 
   return (
     <div className="bg-card p-4 sm:p-6 rounded-xl shadow-xl border-2 border-border">
-      {/* Header with navigation */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <Button variant="outline" size="icon" onClick={goToPrevDay}>
           <ChevronLeft className="h-4 w-4" />
@@ -105,129 +64,50 @@ export function DailyView({
         </Button>
       </div>
 
-      {/* Summary */}
-      {(completedCount > 0 || pendingCount > 0) && (
-        <div className="flex items-center justify-center gap-4 mb-4 p-3 bg-muted/50 rounded-lg">
-          {pendingCount > 0 && (
-            <span className="flex items-center gap-2 text-orange-600">
-              <Clock className="h-4 w-4" />
-              <span className="text-sm font-medium">{pendingCount} pendientes</span>
-            </span>
-          )}
-          {completedCount > 0 && (
-            <span className="flex items-center gap-2 text-green-600">
-              <CheckCircle2 className="h-4 w-4" />
-              <span className="text-sm font-medium">{completedCount} completadas</span>
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Events list */}
+      {/* Shifts list */}
       <div className="space-y-2">
-        {dayEvents.length === 0 && !isFormExpanded && (
+        {dayShifts.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
             <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p>No hay tareas para este día</p>
+            <p>No hay turnos para este dia</p>
           </div>
         )}
 
-        {dayEvents.map((event) => (
-          <div
-            key={event.id}
-            className={cn(
-              "flex items-center gap-3 p-3 rounded-lg transition-colors",
-              event.completed
-                ? "bg-green-50 dark:bg-green-900/20"
-                : "bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30"
-            )}
-          >
-            {onToggleComplete && (
-              <Checkbox
-                checked={event.completed}
-                onCheckedChange={() => onToggleComplete(event.id)}
-                className="h-5 w-5"
-              />
-            )}
-            <div className="w-16 text-sm font-medium text-muted-foreground">
-              {event.isAllDay ? (
-                <span className="text-xs">Todo el día</span>
-              ) : (
-                event.startTime
+        {dayShifts.map((shift) => {
+          const isHighlighted = highlightMemberId === shift.cuidadoraId;
+          return (
+            <div
+              key={shift.id}
+              className={cn(
+                "flex items-center gap-3 p-3 rounded-lg transition-colors",
+                isHighlighted
+                  ? "ring-2 ring-primary/30 bg-primary/5"
+                  : "bg-muted/30"
               )}
-            </div>
-            <div className="flex-1">
-              <span className={cn(
-                "font-medium",
-                event.completed && "line-through text-muted-foreground"
-              )}>
-                {event.title}
-              </span>
-              {event.endTime && !event.isAllDay && (
-                <span className="text-xs text-muted-foreground ml-2">
-                  hasta {event.endTime}
-                </span>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Add task form */}
-      {onAddEvent && (
-        <div className="mt-4 pt-4 border-t">
-          {!isFormExpanded ? (
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => setIsFormExpanded(true)}
             >
-              <PlusCircle className="h-4 w-4 mr-2" />
-              Añadir tarea de cuidado
-            </Button>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <PlusCircle className="h-5 w-5 text-primary flex-shrink-0" />
-                <span className="font-medium">Nueva tarea</span>
-              </div>
-              <Input
-                placeholder="Ej: Dar medicamento, Cambio de posición..."
-                value={newTaskTitle}
-                onChange={(e) => setNewTaskTitle(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleAddTask()}
-                autoFocus
+              <div
+                className="w-3 h-10 rounded-full flex-shrink-0"
+                style={{ backgroundColor: shift.cuidadoraColor }}
               />
-              <div className="flex gap-2">
-                <Input
-                  type="time"
-                  placeholder="Hora (opcional)"
-                  value={newTaskTime}
-                  onChange={(e) => setNewTaskTime(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddTask()}
-                  className="flex-1"
-                />
-                <Button
-                  onClick={handleAddTask}
-                  disabled={!newTaskTitle.trim()}
-                >
-                  Añadir
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setIsFormExpanded(false);
-                    setNewTaskTitle('');
-                    setNewTaskTime('');
-                  }}
-                >
-                  Cancelar
-                </Button>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{shift.patientName}</span>
+                </div>
+                <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <User className="h-3 w-3" />
+                    {shift.cuidadoraName}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {shift.startTime} - {shift.endTime}
+                  </span>
+                </div>
               </div>
             </div>
-          )}
-        </div>
-      )}
+          );
+        })}
+      </div>
     </div>
   );
 }

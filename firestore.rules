@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Email mappings: authenticated users can read their own; coordinadoras create via client
+    match /emailMappings/{email} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null;
+    }
+
+    // Organizations
+    match /organizations/{orgId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null;
+
+      // Members subcollection
+      match /members/{memberId} {
+        allow read: if request.auth != null;
+        allow create, update, delete: if request.auth != null;
+      }
+
+      // Patients subcollection
+      match /patients/{patientId} {
+        allow read: if request.auth != null;
+        allow create, update, delete: if request.auth != null;
+
+        // Tasks under patient
+        match /tasks/{taskId} {
+          allow read, write: if request.auth != null;
+        }
+
+        // Medications under patient
+        match /medications/{medId} {
+          allow read, write: if request.auth != null;
+        }
+      }
+
+      // Shifts subcollection (at org level for calendar queries)
+      match /shifts/{shiftId} {
+        allow read: if request.auth != null;
+        allow create, update, delete: if request.auth != null;
+      }
+    }
+
+    // Legacy: keep carePlans accessible during transition
+    match /carePlans/{planId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.ownerId == request.auth.uid;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null
+        && resource.data.ownerId == request.auth.uid;
+
+      match /tasks/{taskId} {
+        allow read, write: if request.auth != null;
+      }
+
+      match /medications/{medId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+
+    match /planInvites/{code} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

@@ -1,32 +1,93 @@
-// Tipos para la app Cuidamos - Planificación de cuidados
+// Tipos para la app Cuidamos - Sistema de roles y organizaciones
 
 // ==========================================
-// CARE PLAN - Plan de cuidados principal
+// ROLES
 // ==========================================
-export interface CarePlan {
+export type UserRole = 'coordinadora' | 'enfermera' | 'cuidadora';
+
+// ==========================================
+// ORGANIZATION
+// ==========================================
+export interface Organization {
   id: string;
-  name: string;                     // "Plan de mamá"
-  description?: string;
-  patientName?: string;             // Nombre del paciente
-  ownerId: string;                  // UID del creador
-  ownerEmail: string;
-  collaborators: string[];          // UIDs con acceso
-  collaboratorEmails: string[];
-  inviteCode?: string;
-  inviteExpiresAt?: string;
+  name: string;
+  createdBy: string; // UID
   createdAt: string;
   updatedAt: string;
 }
 
 // ==========================================
-// PLAN INVITE - Códigos de invitación
+// MEMBER - Miembro de una organización
 // ==========================================
-export interface PlanInvite {
-  code: string;
-  planId: string;
-  createdBy: string;
+export interface Member {
+  id: string;
+  uid: string | null; // null hasta primer login
+  email: string;
+  name: string;
+  phone: string;
+  role: UserRole;
+  color: string | null; // hex, solo cuidadoras
+  active: boolean;
   createdAt: string;
-  expiresAt: string;
+  updatedAt: string;
+}
+
+// ==========================================
+// EMAIL MAPPING - Lookup rápido al login
+// ==========================================
+export interface EmailMapping {
+  orgId: string;
+  memberId: string;
+  role: UserRole;
+  createdAt: string;
+}
+
+// ==========================================
+// PATIENT - Paciente de la organización
+// ==========================================
+export interface Patient {
+  id: string;
+  name: string;
+  identifier?: string;
+  birthDate?: string;
+  address?: string;
+  phone?: string;
+  emergencyContact?: string;
+  medicalNotes?: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ==========================================
+// SHIFT - Turno de cuidadora con paciente
+// ==========================================
+export interface Shift {
+  id: string;
+  patientId: string;
+  patientName: string; // denormalized
+  cuidadoraId: string; // memberId
+  cuidadoraName: string; // denormalized
+  cuidadoraColor: string; // denormalized hex
+  date: string; // YYYY-MM-DD
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+}
+
+// ==========================================
+// APP USER - Usuario con contexto de org/rol
+// ==========================================
+export interface AppUser {
+  uid: string;
+  email: string;
+  displayName: string | null;
+  orgId: string | null;
+  memberId: string | null;
+  role: UserRole | null;
+  memberColor: string | null;
 }
 
 // ==========================================
@@ -34,19 +95,18 @@ export interface PlanInvite {
 // ==========================================
 export interface CareTask {
   id: string;
-  planId: string;                   // Referencia al plan
+  patientId: string;
   title: string;
   description?: string;
   date: string; // YYYY-MM-DD
   time?: string; // HH:mm
   completed: boolean;
   completedAt?: string;
-  completedBy?: string;
-  completedByEmail?: string;
+  completedBy?: string; // memberId
+  completedByName?: string;
   category: CareCategory;
   priority: 'low' | 'medium' | 'high';
   recurring?: RecurringPattern;
-  assignedTo?: string[];
   notes?: string;
   createdAt: string;
   createdBy: string;
@@ -99,7 +159,7 @@ export const ROUTE_LABELS: Record<AdministrationRoute, string> = {
 
 export interface Medication {
   id: string;
-  planId: string;
+  patientId: string;
   name: string;                     // Nombre del medicamento
   dose: string;                     // Ej: "500mg", "1 pastilla"
   route: AdministrationRoute;       // Vía de administración
@@ -109,23 +169,10 @@ export interface Medication {
   recurring?: RecurringPattern;     // Patrón de recurrencia
   completed: boolean;
   completedAt?: string;
-  completedBy?: string;
-  completedByEmail?: string;
+  completedBy?: string; // memberId
+  completedByName?: string;
   createdAt: string;
   createdBy: string;
-  updatedAt: string;
-}
-
-export interface Patient {
-  id: string;
-  name: string;
-  identifier?: string;
-  birthDate?: string;
-  address?: string;
-  phone?: string;
-  emergencyContact?: string;
-  medicalNotes?: string;
-  createdAt: string;
   updatedAt: string;
 }
 
@@ -153,4 +200,24 @@ export const CATEGORY_COLORS: Record<CareCategory, { bg: string; text: string; l
   monitoring: { bg: '#ccfbf1', text: '#115e59', label: 'Monitoreo' },
   emotional: { bg: '#fae8ff', text: '#86198f', label: 'Apoyo emocional' },
   other: { bg: '#f3f4f6', text: '#374151', label: 'Otros' },
+};
+
+// Colores predefinidos para cuidadoras
+export const CUIDADORA_COLORS = [
+  '#ef4444', // red
+  '#f97316', // orange
+  '#eab308', // yellow
+  '#22c55e', // green
+  '#06b6d4', // cyan
+  '#3b82f6', // blue
+  '#8b5cf6', // violet
+  '#ec4899', // pink
+  '#f43f5e', // rose
+  '#14b8a6', // teal
+];
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  coordinadora: 'Coordinadora',
+  enfermera: 'Enfermera',
+  cuidadora: 'Cuidadora',
 };

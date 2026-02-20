@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TaskForm } from "./task-form";
-import type { CareTask, CarePlan } from "@/lib/types";
+import type { CareTask } from "@/lib/types";
 import { CATEGORY_COLORS } from "@/lib/types";
 import { Plus, Trash2, Clock, AlertCircle } from "lucide-react";
 import {
@@ -20,18 +20,22 @@ import {
 } from "@/components/ui/dialog";
 
 interface TaskListProps {
-  plan: CarePlan;
+  patientName: string;
   tasks: CareTask[];
   selectedDate: string;
-  onCreateTask: (data: Omit<CareTask, 'id' | 'planId' | 'createdAt' | 'createdBy' | 'updatedAt' | 'completed'>) => Promise<string | null>;
+  canEdit: boolean;
+  canComplete: boolean;
+  onCreateTask: (data: Omit<CareTask, 'id' | 'patientId' | 'createdAt' | 'createdBy' | 'updatedAt' | 'completed'>) => Promise<string | null>;
   onToggleComplete: (taskId: string) => Promise<boolean>;
   onDeleteTask: (taskId: string) => Promise<boolean>;
 }
 
 export function TaskList({
-  plan,
+  patientName,
   tasks,
   selectedDate,
+  canEdit,
+  canComplete,
   onCreateTask,
   onToggleComplete,
   onDeleteTask,
@@ -45,7 +49,7 @@ export function TaskList({
   const completedTasks = dayTasks.filter((t) => t.completed);
 
   const handleCreateTask = async (
-    data: Omit<CareTask, 'id' | 'planId' | 'createdAt' | 'createdBy' | 'updatedAt' | 'completed'>
+    data: Omit<CareTask, 'id' | 'patientId' | 'createdAt' | 'createdBy' | 'updatedAt' | 'completed'>
   ) => {
     const result = await onCreateTask(data);
     if (result) {
@@ -76,11 +80,13 @@ export function TaskList({
           task.completed ? "bg-muted/50 opacity-60" : "bg-card"
         }`}
       >
-        <Checkbox
-          checked={task.completed}
-          onCheckedChange={() => onToggleComplete(task.id)}
-          className="mt-1"
-        />
+        {canComplete && (
+          <Checkbox
+            checked={task.completed}
+            onCheckedChange={() => onToggleComplete(task.id)}
+            className="mt-1"
+          />
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span
@@ -112,20 +118,22 @@ export function TaskList({
               </span>
             )}
           </div>
-          {task.completed && task.completedByEmail && (
+          {task.completed && task.completedByName && (
             <p className="text-xs text-muted-foreground mt-1">
-              Completado por: {task.completedByEmail}
+              Completado por: {task.completedByName}
             </p>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-          onClick={() => setDeleteTaskId(task.id)}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        {canEdit && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            onClick={() => setDeleteTaskId(task.id)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     );
   };
@@ -137,12 +145,14 @@ export function TaskList({
           <CardTitle className="text-lg">
             Tareas - {format(new Date(selectedDate + "T12:00:00"), "d 'de' MMMM", { locale: es })}
           </CardTitle>
-          <Button size="sm" onClick={() => setShowTaskForm(true)}>
-            <Plus className="h-4 w-4 mr-1" />
-            Agregar
-          </Button>
+          {canEdit && (
+            <Button size="sm" onClick={() => setShowTaskForm(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              Agregar
+            </Button>
+          )}
         </div>
-        <p className="text-sm text-muted-foreground">{plan.name}</p>
+        <p className="text-sm text-muted-foreground">{patientName}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         {dayTasks.length === 0 ? (
@@ -151,7 +161,6 @@ export function TaskList({
           </p>
         ) : (
           <>
-            {/* Pending Tasks */}
             {pendingTasks.length > 0 && (
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-muted-foreground">
@@ -165,7 +174,6 @@ export function TaskList({
               </div>
             )}
 
-            {/* Completed Tasks */}
             {completedTasks.length > 0 && (
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-muted-foreground">
@@ -180,15 +188,15 @@ export function TaskList({
         )}
       </CardContent>
 
-      {/* Task Form Dialog */}
-      <TaskForm
-        open={showTaskForm}
-        onOpenChange={setShowTaskForm}
-        onSubmit={handleCreateTask}
-        initialDate={selectedDate}
-      />
+      {canEdit && (
+        <TaskForm
+          open={showTaskForm}
+          onOpenChange={setShowTaskForm}
+          onSubmit={handleCreateTask}
+          initialDate={selectedDate}
+        />
+      )}
 
-      {/* Delete Confirmation Dialog */}
       <Dialog open={!!deleteTaskId} onOpenChange={(open) => !open && setDeleteTaskId(null)}>
         <DialogContent>
           <DialogHeader>

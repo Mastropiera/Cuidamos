@@ -27,7 +27,7 @@ import { Plus, X } from "lucide-react";
 interface MedicationFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: Omit<Medication, 'id' | 'planId' | 'createdAt' | 'createdBy' | 'updatedAt' | 'completed'>) => Promise<void>;
+  onSubmit: (data: Omit<Medication, 'id' | 'patientId' | 'createdAt' | 'createdBy' | 'updatedAt' | 'completed'>) => Promise<void>;
   initialDate?: string;
 }
 
@@ -67,7 +67,7 @@ export function MedicationForm({
 
     setIsSubmitting(true);
 
-    const medData: Omit<Medication, 'id' | 'planId' | 'createdAt' | 'createdBy' | 'updatedAt' | 'completed'> = {
+    const medData: Omit<Medication, 'id' | 'patientId' | 'createdAt' | 'createdBy' | 'updatedAt' | 'completed'> = {
       name: name.trim(),
       dose: dose.trim(),
       route,

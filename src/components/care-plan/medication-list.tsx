@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MedicationForm } from "./medication-form";
-import type { Medication, CarePlan } from "@/lib/types";
+import type { Medication } from "@/lib/types";
 import { ROUTE_LABELS } from "@/lib/types";
 import { Plus, Trash2, Clock, Pill } from "lucide-react";
 import {
@@ -20,18 +20,22 @@ import {
 } from "@/components/ui/dialog";
 
 interface MedicationListProps {
-  plan: CarePlan;
+  patientName: string;
   medications: Medication[];
   selectedDate: string;
-  onCreateMedication: (data: Omit<Medication, 'id' | 'planId' | 'createdAt' | 'createdBy' | 'updatedAt' | 'completed'>) => Promise<string | null>;
+  canEdit: boolean;
+  canComplete: boolean;
+  onCreateMedication: (data: Omit<Medication, 'id' | 'patientId' | 'createdAt' | 'createdBy' | 'updatedAt' | 'completed'>) => Promise<string | null>;
   onToggleComplete: (medicationId: string) => Promise<boolean>;
   onDeleteMedication: (medicationId: string) => Promise<boolean>;
 }
 
 export function MedicationList({
-  plan,
+  patientName,
   medications,
   selectedDate,
+  canEdit,
+  canComplete,
   onCreateMedication,
   onToggleComplete,
   onDeleteMedication,
@@ -45,7 +49,7 @@ export function MedicationList({
   const completedMeds = dayMeds.filter((m) => m.completed);
 
   const handleCreate = async (
-    data: Omit<Medication, 'id' | 'planId' | 'createdAt' | 'createdBy' | 'updatedAt' | 'completed'>
+    data: Omit<Medication, 'id' | 'patientId' | 'createdAt' | 'createdBy' | 'updatedAt' | 'completed'>
   ) => {
     const result = await onCreateMedication(data);
     if (result) {
@@ -67,11 +71,13 @@ export function MedicationList({
           med.completed ? "bg-muted/50 opacity-60" : "bg-card"
         }`}
       >
-        <Checkbox
-          checked={med.completed}
-          onCheckedChange={() => onToggleComplete(med.id)}
-          className="mt-1"
-        />
+        {canComplete && (
+          <Checkbox
+            checked={med.completed}
+            onCheckedChange={() => onToggleComplete(med.id)}
+            className="mt-1"
+          />
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span
@@ -107,20 +113,22 @@ export function MedicationList({
           {med.notes && (
             <p className="text-xs text-muted-foreground mt-1">{med.notes}</p>
           )}
-          {med.completed && med.completedByEmail && (
+          {med.completed && med.completedByName && (
             <p className="text-xs text-muted-foreground mt-1">
-              Administrado por: {med.completedByEmail}
+              Administrado por: {med.completedByName}
             </p>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-          onClick={() => setDeleteMedId(med.id)}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        {canEdit && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            onClick={() => setDeleteMedId(med.id)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     );
   };
@@ -135,12 +143,14 @@ export function MedicationList({
               Medicamentos - {format(new Date(selectedDate + "T12:00:00"), "d 'de' MMMM", { locale: es })}
             </CardTitle>
           </div>
-          <Button size="sm" onClick={() => setShowForm(true)}>
-            <Plus className="h-4 w-4 mr-1" />
-            Agregar
-          </Button>
+          {canEdit && (
+            <Button size="sm" onClick={() => setShowForm(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              Agregar
+            </Button>
+          )}
         </div>
-        <p className="text-sm text-muted-foreground">{plan.name}</p>
+        <p className="text-sm text-muted-foreground">{patientName}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         {dayMeds.length === 0 ? (
@@ -149,7 +159,6 @@ export function MedicationList({
           </p>
         ) : (
           <>
-            {/* Pending */}
             {pendingMeds.length > 0 && (
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-muted-foreground">
@@ -163,7 +172,6 @@ export function MedicationList({
               </div>
             )}
 
-            {/* Completed */}
             {completedMeds.length > 0 && (
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-muted-foreground">
@@ -178,15 +186,15 @@ export function MedicationList({
         )}
       </CardContent>
 
-      {/* Medication Form Dialog */}
-      <MedicationForm
-        open={showForm}
-        onOpenChange={setShowForm}
-        onSubmit={handleCreate}
-        initialDate={selectedDate}
-      />
+      {canEdit && (
+        <MedicationForm
+          open={showForm}
+          onOpenChange={setShowForm}
+          onSubmit={handleCreate}
+          initialDate={selectedDate}
+        />
+      )}
 
-      {/* Delete Confirmation Dialog */}
       <Dialog open={!!deleteMedId} onOpenChange={(open) => !open && setDeleteMedId(null)}>
         <DialogContent>
           <DialogHeader>

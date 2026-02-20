@@ -4,19 +4,21 @@ import { useState, useMemo, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { startOfMonth, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
-import type { CareEvent } from "@/lib/types";
+import type { Shift } from "@/lib/types";
 
 interface CalendarDisplayProps {
   selectedDate: Date | undefined;
   onDateSelect: (date?: Date) => void;
-  events?: CareEvent[];
+  shifts?: Shift[];
+  selectedPatientId?: string | null;
   onMonthChange?: (month: Date) => void;
 }
 
 export default function CalendarDisplay({
   selectedDate,
   onDateSelect,
-  events = [],
+  shifts = [],
+  selectedPatientId,
   onMonthChange,
 }: CalendarDisplayProps) {
   const [currentCalendarMonth, setCurrentCalendarMonth] = useState(
@@ -30,51 +32,25 @@ export default function CalendarDisplay({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentCalendarMonth]);
 
-  // Mapear eventos por día
-  const dayEvents = useMemo(() => {
-    const map = new Map<string, CareEvent[]>();
+  // Filter shifts by patient if selected
+  const filteredShifts = useMemo(() => {
+    if (!selectedPatientId) return shifts;
+    return shifts.filter((s) => s.patientId === selectedPatientId);
+  }, [shifts, selectedPatientId]);
 
-    events.forEach((event) => {
-      if (!map.has(event.date)) map.set(event.date, []);
-      map.get(event.date)!.push(event);
-    });
-
-    return map;
-  }, [events]);
-
-  // Días con eventos para modificar el estilo
-  const daysWithEvents = useMemo(() => {
+  // Map shifts by day for modifiers
+  const daysWithShifts = useMemo(() => {
     const dates: Date[] = [];
-    dayEvents.forEach((_, dateKey) => {
-      const [year, month, day] = dateKey.split('-').map(Number);
-      dates.push(new Date(year, month - 1, day));
-    });
-    return dates;
-  }, [dayEvents]);
-
-  // Días con tareas pendientes
-  const daysWithPending = useMemo(() => {
-    const dates: Date[] = [];
-    dayEvents.forEach((evts, dateKey) => {
-      if (evts.some(e => !e.completed)) {
-        const [year, month, day] = dateKey.split('-').map(Number);
+    const seen = new Set<string>();
+    filteredShifts.forEach((s) => {
+      if (!seen.has(s.date)) {
+        seen.add(s.date);
+        const [year, month, day] = s.date.split('-').map(Number);
         dates.push(new Date(year, month - 1, day));
       }
     });
     return dates;
-  }, [dayEvents]);
-
-  // Días con todas las tareas completadas
-  const daysAllCompleted = useMemo(() => {
-    const dates: Date[] = [];
-    dayEvents.forEach((evts, dateKey) => {
-      if (evts.length > 0 && evts.every(e => e.completed)) {
-        const [year, month, day] = dateKey.split('-').map(Number);
-        dates.push(new Date(year, month - 1, day));
-      }
-    });
-    return dates;
-  }, [dayEvents]);
+  }, [filteredShifts]);
 
   return (
     <div className="bg-card p-4 sm:p-6 rounded-xl shadow-xl border-2 border-border">
@@ -87,14 +63,10 @@ export default function CalendarDisplay({
         locale={es}
         className="w-full"
         modifiers={{
-          hasEvents: daysWithEvents,
-          hasPending: daysWithPending,
-          allCompleted: daysAllCompleted,
+          hasShifts: daysWithShifts,
         }}
         modifiersClassNames={{
-          hasEvents: "bg-primary/10",
-          hasPending: "ring-2 ring-orange-400 ring-inset",
-          allCompleted: "ring-2 ring-green-400 ring-inset",
+          hasShifts: "bg-primary/10 ring-2 ring-primary/30 ring-inset",
         }}
         classNames={{
           months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0 justify-center",

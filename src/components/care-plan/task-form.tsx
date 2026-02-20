@@ -26,7 +26,7 @@ import { Switch } from "@/components/ui/switch";
 interface TaskFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: Omit<CareTask, 'id' | 'planId' | 'createdAt' | 'createdBy' | 'updatedAt' | 'completed'>) => Promise<void>;
+  onSubmit: (data: Omit<CareTask, 'id' | 'patientId' | 'createdAt' | 'createdBy' | 'updatedAt' | 'completed'>) => Promise<void>;
   initialDate?: string;
   editTask?: CareTask;
 }
@@ -76,7 +76,7 @@ export function TaskForm({
 
     setIsSubmitting(true);
 
-    const taskData: Omit<CareTask, 'id' | 'planId' | 'createdAt' | 'createdBy' | 'updatedAt' | 'completed'> = {
+    const taskData: Omit<CareTask, 'id' | 'patientId' | 'createdAt' | 'createdBy' | 'updatedAt' | 'completed'> = {
       title: title.trim(),
       description: description.trim() || undefined,
       date,

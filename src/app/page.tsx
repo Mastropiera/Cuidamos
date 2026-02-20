@@ -1,85 +1,101 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { format, startOfDay } from "date-fns";
+import { useState, useCallback } from "react";
+import { startOfDay } from "date-fns";
+import { useAuth } from "@/contexts/auth-context";
+import { isConfigured } from "@/lib/firebase";
+import { AuthCard } from "@/components/auth/auth-card";
+import { OnboardingView } from "@/components/onboarding/onboarding-view";
+import { AppShell } from "@/components/layout/app-shell";
+import { MemberList } from "@/components/team/member-list";
+import { PatientList } from "@/components/patients/patient-list";
+import { PatientDetailView } from "@/components/patients/patient-detail-view";
+import { ShiftList } from "@/components/shifts/shift-list";
+import { MyShiftsView } from "@/components/shifts/my-shifts-view";
 import { ViewNavigation, type CalendarViewType } from "@/components/calendar/view-navigation";
 import CalendarDisplay from "@/components/calendar/calendar-display";
 import { WeeklyView } from "@/components/calendar/weekly-view";
 import { DailyView } from "@/components/calendar/daily-view";
-import { CarePlanList, TaskList, MedicationList } from "@/components/care-plan";
-import { useCarePlan } from "@/hooks/useCarePlan";
-import type { CareEvent } from "@/lib/types";
-import { Heart, AlertCircle, LogOut } from "lucide-react";
-import { useAuth } from "@/contexts/auth-context";
-import { AuthCard } from "@/components/auth/auth-card";
-import { Button } from "@/components/ui/button";
+import { useMembers } from "@/hooks/useMembers";
+import { usePatients } from "@/hooks/usePatients";
+import { usePatientTasks } from "@/hooks/usePatientTasks";
+import { usePatientMedications } from "@/hooks/usePatientMedications";
+import { useShifts } from "@/hooks/useShifts";
+import { usePermissions } from "@/hooks/usePermissions";
+import { Heart, AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { Patient, Shift } from "@/lib/types";
 
 export default function Home() {
-  const { user, loading, logout } = useAuth();
+  const { user, appUser, loading, logout } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
-  const [currentView, setCurrentView] = useState<CalendarViewType>("monthly");
-  const [activeTab, setActiveTab] = useState<"calendar" | "plans">("plans");
+  const [currentView, setCurrentView] = useState<CalendarViewType>("weekly");
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [viewingPatient, setViewingPatient] = useState<Patient | null>(null);
+  const [calendarFilterPatientId, setCalendarFilterPatientId] = useState<string | null>(null);
 
-  // Use the care plan hook
-  const {
-    plans,
-    tasks,
-    medications,
-    selectedPlanId,
-    isLoading,
-    isFirebaseConfigured,
-    setSelectedPlanId,
-    createPlan,
-    deletePlan,
-    createTask,
-    toggleTaskComplete,
-    deleteTask,
-    createMedication,
-    deleteMedication,
-    toggleMedicationComplete,
-    generateInvite,
-    joinWithInvite,
-    leaveAsCollaborator,
-  } = useCarePlan(user?.uid, user?.email ?? undefined);
+  const orgId = appUser?.orgId || null;
+  const role = appUser?.role || null;
+  const memberId = appUser?.memberId || null;
 
-  // Convert tasks to CareEvents for calendar display
-  const calendarEvents: CareEvent[] = useMemo(() => {
-    if (!selectedPlanId) return [];
-    const planTasks = tasks[selectedPlanId] || [];
-    return planTasks.map((task) => ({
-      id: task.id,
-      title: task.title,
-      date: task.date,
-      startTime: task.time,
-      isAllDay: !task.time,
-      type: "task" as const,
-      category: task.category,
-      completed: task.completed,
-    }));
-  }, [selectedPlanId, tasks]);
+  // Data hooks
+  const { members, createMember, updateMember, deleteMember } = useMembers(orgId);
+  const { patients, createPatient, deletePatient } = usePatients(orgId);
+  const { tasks, createTask, toggleTaskComplete, deleteTask } = usePatientTasks(orgId, viewingPatient?.id || null);
+  const { medications, createMedication, toggleMedicationComplete, deleteMedication } = usePatientMedications(orgId, viewingPatient?.id || null);
+  const { shifts, createShift, deleteShift } = useShifts(orgId);
 
-  const handleToggleComplete = async (eventId: string) => {
-    if (!selectedPlanId) return;
-    await toggleTaskComplete(selectedPlanId, eventId);
-  };
+  // Permissions
+  const perms = usePermissions(role, memberId, shifts);
 
-  const handleAddEvent = async (eventData: Omit<CareEvent, "id">) => {
-    if (!selectedPlanId) return;
-    await createTask(selectedPlanId, {
-      title: eventData.title,
-      date: eventData.date,
-      time: eventData.startTime,
-      category: eventData.category || "other",
-      priority: "medium",
-    });
-  };
+  // Cuidadoras for shift creation
+  const cuidadoras = members.filter((m) => m.role === 'cuidadora' && m.active);
 
-  const selectedPlan = plans.find((p) => p.id === selectedPlanId);
-  const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
+  // Member name lookup for completions
+  const currentMemberName = members.find((m) => m.id === memberId)?.name || appUser?.displayName || '';
 
-  // Show loading skeleton while checking auth state
+  // Handlers
+  const handleSelectPatient = useCallback((patient: Patient) => {
+    setSelectedPatientId(patient.id);
+    setViewingPatient(patient);
+  }, []);
+
+  const handleBackFromPatient = useCallback(() => {
+    setViewingPatient(null);
+  }, []);
+
+  const handleToggleTaskComplete = useCallback(async (taskId: string) => {
+    if (!memberId) return false;
+    return toggleTaskComplete(taskId, memberId, currentMemberName);
+  }, [toggleTaskComplete, memberId, currentMemberName]);
+
+  const handleToggleMedicationComplete = useCallback(async (medId: string) => {
+    if (!memberId) return false;
+    return toggleMedicationComplete(medId, memberId, currentMemberName);
+  }, [toggleMedicationComplete, memberId, currentMemberName]);
+
+  const handleCreateShift = useCallback(async (data: Parameters<typeof createShift>[0]) => {
+    if (!memberId) return null;
+    return createShift(data, memberId);
+  }, [createShift, memberId]);
+
+  const handleShiftSelect = useCallback((shift: Shift) => {
+    const patient = patients.find((p) => p.id === shift.patientId);
+    if (patient) {
+      setSelectedPatientId(patient.id);
+      setViewingPatient(patient);
+    }
+  }, [patients]);
+
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -91,13 +107,13 @@ export default function Home() {
     );
   }
 
-  // Show login screen if not authenticated
-  if (!user) {
+  // Not authenticated
+  if (!user || !appUser) {
     return <AuthCard />;
   }
 
-  // Show configuration warning if Firebase is not configured
-  if (!isFirebaseConfigured) {
+  // Firebase not configured
+  if (!isConfigured) {
     return (
       <div className="min-h-screen bg-background">
         <header className="border-b bg-card shadow-sm">
@@ -117,14 +133,6 @@ export default function Home() {
                 <p className="text-muted-foreground">
                   Para usar Cuidamos, necesitas configurar Firebase.
                 </p>
-                <ol className="text-left text-sm space-y-2 text-muted-foreground">
-                  <li>1. Copia el archivo <code className="bg-muted px-1 rounded">.env.local.example</code> a <code className="bg-muted px-1 rounded">.env.local</code></li>
-                  <li>2. Ve a <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">Firebase Console</a></li>
-                  <li>3. Crea un nuevo proyecto</li>
-                  <li>4. Habilita Firestore Database</li>
-                  <li>5. Copia las credenciales al archivo <code className="bg-muted px-1 rounded">.env.local</code></li>
-                  <li>6. Reinicia el servidor de desarrollo</li>
-                </ol>
               </div>
             </CardContent>
           </Card>
@@ -133,142 +141,268 @@ export default function Home() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Heart className="h-8 w-8 text-primary fill-primary/20" />
-              <h1 className="text-2xl font-bold text-primary">Cuidamos</h1>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-muted-foreground hidden sm:block">
-                {user.email}
-              </span>
-              <Button variant="ghost" size="sm" onClick={logout}>
-                <LogOut className="h-4 w-4" />
-                <span className="hidden sm:inline ml-1">Salir</span>
-              </Button>
-            </div>
-          </div>
+  // No organization - show onboarding
+  if (!appUser.orgId || !appUser.role) {
+    return <OnboardingView />;
+  }
+
+  // Get org name
+  const orgName = members.length > 0 ? undefined : undefined; // org name loaded elsewhere
+
+  // Determine which tabs to show based on role
+  const renderTabs = () => {
+    if (role === 'coordinadora') return renderCoordinadoraTabs();
+    if (role === 'enfermera') return renderEnfermeraTabs();
+    if (role === 'cuidadora') return renderCuidadoraTabs();
+    return null;
+  };
+
+  // ===== COORDINADORA TABS =====
+  const renderCoordinadoraTabs = () => (
+    <Tabs defaultValue="equipo">
+      <TabsList className="mb-6 flex-wrap">
+        <TabsTrigger value="equipo">Equipo</TabsTrigger>
+        <TabsTrigger value="pacientes">Pacientes</TabsTrigger>
+        <TabsTrigger value="turnos">Turnos</TabsTrigger>
+        <TabsTrigger value="calendario">Calendario</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="equipo">
+        <MemberList
+          members={members}
+          canManage={perms.canManageTeam}
+          onCreateMember={createMember}
+          onUpdateMember={updateMember}
+          onDeleteMember={deleteMember}
+        />
+      </TabsContent>
+
+      <TabsContent value="pacientes">
+        {viewingPatient ? (
+          <PatientDetailView
+            patient={viewingPatient}
+            tasks={tasks}
+            medications={medications}
+            canEditTasks={perms.canCreateTask}
+            canEditMedications={perms.canCreateMedication}
+            canComplete={perms.canCompleteForPatient(viewingPatient.id)}
+            onBack={handleBackFromPatient}
+            onCreateTask={createTask}
+            onToggleTaskComplete={handleToggleTaskComplete}
+            onDeleteTask={deleteTask}
+            onCreateMedication={createMedication}
+            onToggleMedicationComplete={handleToggleMedicationComplete}
+            onDeleteMedication={deleteMedication}
+          />
+        ) : (
+          <PatientList
+            patients={patients}
+            selectedPatientId={selectedPatientId}
+            onSelectPatient={handleSelectPatient}
+            canCreate={perms.canCreatePatient}
+            canDelete={perms.canDeletePatient}
+            onCreatePatient={createPatient}
+            onDeletePatient={deletePatient}
+          />
+        )}
+      </TabsContent>
+
+      <TabsContent value="turnos">
+        <ShiftList
+          shifts={shifts}
+          cuidadoras={cuidadoras}
+          patients={patients}
+          canCreate={perms.canCreateShift}
+          canDelete={perms.canDeleteShift}
+          onCreateShift={handleCreateShift}
+          onDeleteShift={deleteShift}
+        />
+      </TabsContent>
+
+      <TabsContent value="calendario">
+        {renderCalendar()}
+      </TabsContent>
+    </Tabs>
+  );
+
+  // ===== ENFERMERA TABS =====
+  const renderEnfermeraTabs = () => (
+    <Tabs defaultValue="pacientes">
+      <TabsList className="mb-6">
+        <TabsTrigger value="pacientes">Pacientes</TabsTrigger>
+        <TabsTrigger value="calendario">Calendario</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="pacientes">
+        {viewingPatient ? (
+          <PatientDetailView
+            patient={viewingPatient}
+            tasks={tasks}
+            medications={medications}
+            canEditTasks={perms.canCreateTask}
+            canEditMedications={perms.canCreateMedication}
+            canComplete={perms.canCompleteForPatient(viewingPatient.id)}
+            onBack={handleBackFromPatient}
+            onCreateTask={createTask}
+            onToggleTaskComplete={handleToggleTaskComplete}
+            onDeleteTask={deleteTask}
+            onCreateMedication={createMedication}
+            onToggleMedicationComplete={handleToggleMedicationComplete}
+            onDeleteMedication={deleteMedication}
+          />
+        ) : (
+          <PatientList
+            patients={patients}
+            selectedPatientId={selectedPatientId}
+            onSelectPatient={handleSelectPatient}
+            canCreate={false}
+            canDelete={false}
+          />
+        )}
+      </TabsContent>
+
+      <TabsContent value="calendario">
+        {renderCalendar()}
+      </TabsContent>
+    </Tabs>
+  );
+
+  // ===== CUIDADORA TABS =====
+  const renderCuidadoraTabs = () => (
+    <Tabs defaultValue="mis-turnos">
+      <TabsList className="mb-6">
+        <TabsTrigger value="mis-turnos">Mis Turnos</TabsTrigger>
+        <TabsTrigger value="pacientes">Pacientes</TabsTrigger>
+        <TabsTrigger value="calendario">Calendario</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="mis-turnos">
+        {viewingPatient ? (
+          <PatientDetailView
+            patient={viewingPatient}
+            tasks={tasks}
+            medications={medications}
+            canEditTasks={false}
+            canEditMedications={false}
+            canComplete={perms.canCompleteForPatient(viewingPatient.id)}
+            onBack={handleBackFromPatient}
+            onCreateTask={createTask}
+            onToggleTaskComplete={handleToggleTaskComplete}
+            onDeleteTask={deleteTask}
+            onCreateMedication={createMedication}
+            onToggleMedicationComplete={handleToggleMedicationComplete}
+            onDeleteMedication={deleteMedication}
+          />
+        ) : (
+          <MyShiftsView
+            shifts={shifts}
+            memberId={memberId!}
+            onSelectShift={handleShiftSelect}
+          />
+        )}
+      </TabsContent>
+
+      <TabsContent value="pacientes">
+        {viewingPatient ? (
+          <PatientDetailView
+            patient={viewingPatient}
+            tasks={tasks}
+            medications={medications}
+            canEditTasks={false}
+            canEditMedications={false}
+            canComplete={perms.canCompleteForPatient(viewingPatient.id)}
+            onBack={handleBackFromPatient}
+            onCreateTask={createTask}
+            onToggleTaskComplete={handleToggleTaskComplete}
+            onDeleteTask={deleteTask}
+            onCreateMedication={createMedication}
+            onToggleMedicationComplete={handleToggleMedicationComplete}
+            onDeleteMedication={deleteMedication}
+          />
+        ) : (
+          <PatientList
+            patients={patients}
+            selectedPatientId={selectedPatientId}
+            onSelectPatient={handleSelectPatient}
+            canCreate={false}
+            canDelete={false}
+          />
+        )}
+      </TabsContent>
+
+      <TabsContent value="calendario">
+        {renderCalendar()}
+      </TabsContent>
+    </Tabs>
+  );
+
+  // ===== CALENDAR (shared across roles) =====
+  const renderCalendar = () => (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+        <ViewNavigation currentView={currentView} onViewChange={setCurrentView} />
+
+        {/* Patient filter */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Filtrar:</span>
+          <Select
+            value={calendarFilterPatientId || "__all__"}
+            onValueChange={(v) => setCalendarFilterPatientId(v === "__all__" ? null : v)}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Todos los pacientes" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">Todos los pacientes</SelectItem>
+              {patients.filter((p) => p.active).map((p) => (
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-      </header>
+      </div>
 
-      {/* Main content */}
-      <main className="container mx-auto px-4 py-6">
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "calendar" | "plans")}>
-          <TabsList className="mb-6">
-            <TabsTrigger value="plans">Planes</TabsTrigger>
-            <TabsTrigger value="calendar">Calendario</TabsTrigger>
-          </TabsList>
+      <div className="max-w-4xl mx-auto">
+        {currentView === "monthly" && (
+          <CalendarDisplay
+            selectedDate={selectedDate}
+            onDateSelect={(date) => date && setSelectedDate(date)}
+            shifts={shifts}
+            selectedPatientId={calendarFilterPatientId}
+          />
+        )}
 
-          {/* Plans Tab */}
-          <TabsContent value="plans" className="space-y-6">
-            {isLoading ? (
-              <div className="text-center py-12 text-muted-foreground">
-                Cargando planes...
-              </div>
-            ) : (
-              <>
-                <CarePlanList
-                  plans={plans}
-                  tasks={tasks}
-                  userId={user.uid}
-                  selectedPlanId={selectedPlanId}
-                  onSelectPlan={setSelectedPlanId}
-                  onCreatePlan={createPlan}
-                  onDeletePlan={deletePlan}
-                  onGenerateInvite={generateInvite}
-                  onJoinWithInvite={joinWithInvite}
-                  onLeavePlan={leaveAsCollaborator}
-                />
+        {currentView === "weekly" && (
+          <WeeklyView
+            selectedDate={selectedDate}
+            onDateSelect={setSelectedDate}
+            shifts={calendarFilterPatientId
+              ? shifts.filter((s) => s.patientId === calendarFilterPatientId)
+              : shifts
+            }
+            patients={patients}
+            highlightMemberId={role === 'cuidadora' ? memberId || undefined : undefined}
+          />
+        )}
 
-                {/* Medication List for selected plan */}
-                {selectedPlan && (
-                  <MedicationList
-                    plan={selectedPlan}
-                    medications={medications[selectedPlanId!] || []}
-                    selectedDate={selectedDateStr}
-                    onCreateMedication={(data) => createMedication(selectedPlanId!, data)}
-                    onToggleComplete={(medId) => toggleMedicationComplete(selectedPlanId!, medId)}
-                    onDeleteMedication={(medId) => deleteMedication(selectedPlanId!, medId)}
-                  />
-                )}
-
-                {/* Task List for selected plan */}
-                {selectedPlan && (
-                  <TaskList
-                    plan={selectedPlan}
-                    tasks={tasks[selectedPlanId!] || []}
-                    selectedDate={selectedDateStr}
-                    onCreateTask={(data) => createTask(selectedPlanId!, data)}
-                    onToggleComplete={(taskId) => toggleTaskComplete(selectedPlanId!, taskId)}
-                    onDeleteTask={(taskId) => deleteTask(selectedPlanId!, taskId)}
-                  />
-                )}
-              </>
-            )}
-          </TabsContent>
-
-          {/* Calendar Tab */}
-          <TabsContent value="calendar">
-            {!selectedPlanId ? (
-              <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
-                  <p>Selecciona un plan en la pestana &quot;Planes&quot; para ver su calendario.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <>
-                {/* View Navigation */}
-                <div className="mb-6">
-                  <ViewNavigation
-                    currentView={currentView}
-                    onViewChange={setCurrentView}
-                  />
-                </div>
-
-                {/* Plan indicator */}
-                <p className="text-sm text-muted-foreground mb-4">
-                  Mostrando: <span className="font-medium">{selectedPlan?.name}</span>
-                </p>
-
-                {/* Calendar Views */}
-                <div className="max-w-4xl mx-auto">
-                  {currentView === "monthly" && (
-                    <CalendarDisplay
-                      selectedDate={selectedDate}
-                      onDateSelect={(date) => date && setSelectedDate(date)}
-                      events={calendarEvents}
-                    />
-                  )}
-
-                  {currentView === "weekly" && (
-                    <WeeklyView
-                      selectedDate={selectedDate}
-                      onDateSelect={setSelectedDate}
-                      events={calendarEvents}
-                      onToggleComplete={handleToggleComplete}
-                    />
-                  )}
-
-                  {currentView === "daily" && (
-                    <DailyView
-                      selectedDate={selectedDate}
-                      onDateChange={setSelectedDate}
-                      events={calendarEvents}
-                      onToggleComplete={handleToggleComplete}
-                      onAddEvent={handleAddEvent}
-                    />
-                  )}
-                </div>
-              </>
-            )}
-          </TabsContent>
-        </Tabs>
-      </main>
+        {currentView === "daily" && (
+          <DailyView
+            selectedDate={selectedDate}
+            onDateChange={setSelectedDate}
+            shifts={calendarFilterPatientId
+              ? shifts.filter((s) => s.patientId === calendarFilterPatientId)
+              : shifts
+            }
+            highlightMemberId={role === 'cuidadora' ? memberId || undefined : undefined}
+          />
+        )}
+      </div>
     </div>
+  );
+
+  return (
+    <AppShell appUser={appUser} orgName={orgName} onLogout={logout}>
+      {renderTabs()}
+    </AppShell>
   );
 }
